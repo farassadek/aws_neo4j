@@ -1,0 +1,118 @@
+
+match (n) return n;
+match (n) detach delete n;
+
+create (n1:node {name:"Web-Dynamic", title:"DYNAMIC"})
+create (n2:node {name:"Web-Static", title:"STATIC"})
+create (n3:node {name:"Web-Public", title:"PUBLIC" })
+
+
+MATCH  (n1:node {name:"Web-Static"})
+MATCH  (n2:node {name:"Web-Public"})
+CREATE (n1)-[r:NFS_MOUNT {roles: ['Client']}]->(n2) RETURN n1,r,n2
+
+MATCH  (n1:node {name:"Web-Static"})
+MATCH  (n2:node {name:"Web-Public"})
+MERGE (n1)-[r:NFS_MOUNT]->(n2) 
+ON CREATE SET r.roles =['Client','LVM'] RETURN n1,r,n2
+
+MATCH (n1:node)-[r:NFS_MOUNT]->(n2:node)
+WHERE n1.name =~ "Web-Static" OR n2.title =~"PUBLIC" OR "Client" IN r.roles RETURN n1,r,n2
+
+
+MATCH (n1:node)-[r:NFS_MOUNT]->(n2)
+WHERE NOT (n1)-[:DIRECTED]->()
+RETURN n1,n2
+
+
+
+CREATE (n1:Instance { name:"Web-Static", ip:"10.0.0.2" })-[r:NFS_FROM { roles: ["Client"]}]->(m:EBS { title:"NFS Mount",size:"500G" })
+CREATE (n2:Instance { name:"Web-Public", ip:"10.0.0.1" })-[:EXPORT]->(m)
+RETURN n1,n2,r,m
+
+match (n)--()
+with n,count(*) as rel_cnt
+where rel_cnt > 35 and (n.name = "1d_LDAP_EXTERN" or n.public_ip ="10.137.96.0/22")
+return n;
+
+
+match (n:DIRECT_VPC)--(r:ALL_SGs_IPs {private_ip:"0.0.0.0/0"}) return n,r;
+match (n:DIRECT_VPC)--(r:ALL_SGs_IPs) return n,r;
+match (r:DIRECT_VPC {inst_id:"i-9375e90e"})--(n) return r,n;
+match (n)--(r:DIRECT_VPC {inst_id:"i-9375e90e"}) return r,n;
+match (n)--(r:DIRECT_VPC {inst_id:"i-3311278d"}) return r,n;
+
+ 
+* aggregate : count, sum, avg, min,  max
+	MATCH (:Person) RETURN count(*) AS people
+	MATCH (p:Person) RETURN count(DISTINCT p.name) AS people
+
+* relations
+	MATCH (actor:Person)-[:ACTED_IN]->(movie:Movie)<-[:DIRECTED]-(director:Person)
+	RETURN actor,director,count(*) AS collaborations
+
+* Order By
+	ORDER BY appearances DESC LIMIT 10;
+
+* Union
+	MATCH (actor:Person)-[r:ACTED_IN]->(movie:Movie)
+	RETURN actor.name AS name, type(r) AS acted_in, movie.title AS title
+	UNION
+	MATCH (director:Person)-[r:DIRECTED]->(movie:Movie)
+	RETURN director.name AS name, type(r) AS acted_in, movie.title AS title
+
+* With
+	MATCH (person:Person)-[:ACTED_IN]->(m:Movie)
+	WITH person, count(*) AS appearances, collect(m.title) AS movies
+	WHERE appearances > 1
+	RETURN person.name, appearances, movies
+
+* Constraint
+	CREATE CONSTRAINT ON (movie:Movie) ASSERT movie.title IS UNIQUE
+
+* Index
+	CREATE INDEX ON :Actor(name)
+
+* Labels
+	MATCH (actor:Actor { name: "Tom Hanks" })
+	SET actor:American;
+	MATCH (actor:Actor { name: "Tom Hanks" })
+	REMOVE actor:American;
+* Load CSV
+	PERIODIC COMMIT LOAD CSV WITH HEADERS FROM "file:///persons.csv" AS line
+	MERGE (a:Person { id:line.id })
+	ON CREATE SET a.name=line.name;
+	
+	LOAD CSV WITH HEADERS FROM "file:///movies.csv" AS line
+	CREATE (m:Movie { id:line.id,title:line.title, released:toInt(line.year)});
+	
+	LOAD CSV WITH HEADERS FROM "file:///roles.csv" AS line
+	MATCH (m:Movie { id:line.movieId })
+	MATCH (a:Person { id:line.personId })
+	CREATE (a)-[:ACTED_IN { roles: [line.role]}]->(m);
+	
+	START n=node(*) MATCH (n)-[r]->(m) RETURN n,r,m;
+
+* Data Structure, size(list), reduce
+	MATCH (movie:Movie)<-[:ACTED_IN]-(actor:Person)
+	RETURN movie.title AS movie, collect(actor.name)[0..2] AS two_of_cast;
+
+* List
+	WITH range(1,10) AS numbers
+	WITH extract(n IN numbers | n*n) AS squares
+	WITH filter(n IN squares WHERE n > 25) AS large_squares
+	RETURN reduce(a = 0, n IN large_squares | a + n) AS sum_large_squares;
+	
+	MATCH (m:Movie)<-[r:ACTED_IN]-(a:Person)
+	WITH m.title AS movie, collect({ name: a.name, roles: r.roles }) AS cast
+	RETURN movie, filter(actor IN cast WHERE actor.name STARTS WITH "M") Starts_M
+
+* Unwind Lists
+	MATCH (actor:Person)-[:ACTED_IN]->(movie:Movie)<-[:ACTED_IN]-(colleague:Person)
+	WHERE actor.name < colleague.name
+	WITH actor, colleague, count(*) AS frequency, collect(movie) AS movies
+	ORDER BY frequency DESC LIMIT 3 UNWIND movies AS m
+	MATCH (m)<-[:ACTED_IN]-(a)
+	RETURN m.title AS movie, collect(a.name) AS cast
+
+
