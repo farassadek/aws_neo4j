@@ -21,34 +21,9 @@ class Ec2_Relation():
         return (instance)
 
 
-    def nodes_relations(self):
-        ec2 = boto3.client("ec2", region_name=self.region)                      
-        instances = ec2.describe_instances()['Reservations']
-        for instance in instances:
-            instance_id = instance['Instances'][0]['InstanceId']
-            instance_gr = instance['Instances'][0]['SecurityGroups']
-            private_ip = instance['Instances'][0]['PrivateIpAddress']
-            #public_ip  = instance['Instances'][0]['PublicIpAddress']
-            for g in instance_gr:
-                    inbound,outbound=self.parse_sg (g['GroupId'])
-                    for inb in inbound:
-                        rel = (instance_id,inb[0],inb[1],inb[2],'inbound')
-                        if not rel in self.relation:
-                            self.relation.append(rel)
-                    for outb in outbound:
-                        rel = (instance_id,outb[0],outb[1],outb[2],'outbound')
-                        if not rel in self.relation:
-                            self.relation.append(rel)
-
-    def build_nodes(self):
-        self.nodes_relations()
-        for i in self.relation:
-            print (i)
-        #rel = self.relation[1]
-        #print (rel[1]['Instances'][0]['PrivateIpAddress'])
-
-
     def parse_sg(self,sg_id):
+        sgs=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
+
         sg = boto3.resource("ec2", region_name=self.region).SecurityGroup(sg_id)
         inbound = []
         outbound = []
@@ -85,6 +60,33 @@ class Ec2_Relation():
                 outbound.append ((cip,protocol,port_range))
 
         return(inbound,outbound)
+
+    def nodes_relations(self):
+        ec2 = boto3.client("ec2", region_name=self.region)                      
+        instances = ec2.describe_instances()['Reservations']
+        for instance in instances:
+            instance_id = instance['Instances'][0]['InstanceId']
+            instance_gr = instance['Instances'][0]['SecurityGroups']
+            private_ip = instance['Instances'][0]['PrivateIpAddress']
+            #public_ip  = instance['Instances'][0]['PublicIpAddress']
+            for g in instance_gr:
+                    inbound,outbound=self.parse_sg (g['GroupId'])
+                    for inb in inbound:
+                        rel = (instance_id,inb[0],inb[1],inb[2],'inbound')
+                        if not rel in self.relation:
+                            self.relation.append(rel)
+                    for outb in outbound:
+                        rel = (instance_id,outb[0],outb[1],outb[2],'outbound')
+                        if not rel in self.relation:
+                            self.relation.append(rel)
+
+    def build_nodes(self):
+        self.nodes_relations()
+        for i in self.relation:
+            print (i)
+        #rel = self.relation[1]
+        #print (rel[1]['Instances'][0]['PrivateIpAddress'])
+
 
 
 if __name__  == "__main__" :

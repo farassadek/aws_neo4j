@@ -79,6 +79,7 @@ cat  /etc/httpd/conf.d/neo4j.conf
 
 echo "
 dbms.directories.import=import
+dbms.security.auth_enabled=false
 
 dbms.connector.bolt.type=BOLT
 dbms.connector.bolt.enabled=true
