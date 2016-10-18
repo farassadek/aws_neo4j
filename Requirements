@@ -26,6 +26,15 @@ Who can use this?
 
 ----------------- python and modules ----------
 
+
+yum install python34
+curl https://bootstrap.pypa.io/get-pip.py | python3.4
+pip install ipython
+Pip install neo4j-driver
+pip install boto3
+
+.............
+
 python --version
 Python 2.7.10
 
@@ -69,15 +78,32 @@ cat  /etc/httpd/conf.d/neo4j.conf
 -------------------- neo4j Config ------------
 
 echo "
-org.neo4j.server.database.location=data/graph.db
-org.neo4j.server.db.tuning.properties=conf/neo4j.properties
-org.neo4j.server.webserver.address=0.0.0.0
-dbms.security.auth_enabled=false
-org.neo4j.server.webserver.port=7474
-org.neo4j.server.webserver.https.enabled=true
-org.neo4j.server.webserver.https.port=7473
+dbms.directories.import=import
 
-" > /opt/neo4j/conf/neo4j-server.properties
+dbms.connector.bolt.type=BOLT
+dbms.connector.bolt.enabled=true
+dbms.connector.bolt.tls_level=OPTIONAL
+dbms.connector.bolt.address=0.0.0.0:7687
+
+dbms.connector.http.type=HTTP
+dbms.connector.http.enabled=true
+dbms.connector.http.address=0.0.0.0:7474
+
+dbms.connector.https.type=HTTP
+dbms.connector.https.enabled=true
+dbms.connector.https.encryption=TLS
+dbms.connector.https.address=0.0.0.0:7473
+
+" > /opt/neo4j/conf/neo4j.conf
+
+
+
+
+
+
+
+
+
 
 
 
@@ -132,3 +158,5 @@ chkconfig neo4j on
 
 
 --------------------------------
+
+

@@ -1,10 +1,12 @@
+from neo4jrestclient.client import GraphDatabase
 import boto3
 import logging
 import time
 import threading
 
 class Ec2_Relation():
-    #region = Unicode("us-east-1", config=True, help= """ AWS Region  """) 
+    #region = Unicode("us-east-1", config=True, help= """ AWS Region  """)
+    gdb = GraphDatabase("http://localhost:7474/db/data/")
     region = 'us-east-1'
     relation = []
 
