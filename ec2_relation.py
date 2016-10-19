@@ -20,7 +20,24 @@ class Ec2_Relation():
             instance = boto3.resource("ec2", region_name=self.region).Instance(instance_id)
         return (instance)
 
-    def parse_sgs(self):
+    def parse_instances(self):
+        instances=boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
+        inst_sg = {} 
+        prv_inst = {}
+        pub_inst = {}
+        for instance in instances:
+            inst = instance['Instances'][0]
+            iid = inst.get('InstanceId')
+            igr = inst.get('SecurityGroups')
+            ipr = inst.get('PrivateIpAddress')
+            ipb = inst.get('PublicIpAddress')
+            inst_sg[iid]  = igr
+            prv_inst[ipr] = iid
+            pub_inst[ipb] = iid
+        return (inst_sg,prv_inst,pub_inst)
+
+        
+    def parse_securitygroups(self,prv_inst,pub_inst):
         sgs=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
         inbound  = {}
         outbound = {}
@@ -41,6 +58,10 @@ class Ec2_Relation():
                        cip=cip[:-2]
                     if cip[-3:] == '/32':
                        cip=cip[:-3]
+                       if prv_inst.get(cip):
+                          cip = prv_inst.get(cip)
+                       if pub_inst.get(cip):
+                          cip = pub_inst.get(cip)
                     inb.append ((cip,protocol,port_range))
             inbound[sg['GroupId']]=inb
             for rule in sg['IpPermissionsEgress']:
@@ -63,13 +84,21 @@ class Ec2_Relation():
 
 
     def nodes_relations(self):
+        insts_sgs,prv_inst,pub_inst = self.parse_instances()
+        inb,outb = self.parse_securitygroups(prv_inst,pub_inst)
+        #for inst_sgs in insts_sgs.keys():
+            #print (inst_sgs)
+            #for g in inst_sgs[inst_sgs]:
+            #    print (g)
+
+
+
+    def nodes_relations_old(self):
         ec2 = boto3.client("ec2", region_name=self.region)                      
         instances = ec2.describe_instances()['Reservations']
         for instance in instances:
             instance_id = instance['Instances'][0]['InstanceId']
             instance_gr = instance['Instances'][0]['SecurityGroups']
-            private_ip = instance['Instances'][0]['PrivateIpAddress']
-            #public_ip  = instance['Instances'][0]['PublicIpAddress']
             for g in instance_gr:
                     inbound,outbound=self.parse_sg (g['GroupId'])
                     for inb in inbound:
@@ -92,7 +121,5 @@ class Ec2_Relation():
 
 if __name__  == "__main__" :
     obj = Ec2_Relation()
-    #obj.build_nodes()
-    inb,outb = obj.parse_sgs()
-    
+    obj.nodes_relations()
 
