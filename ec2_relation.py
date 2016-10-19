@@ -20,10 +20,49 @@ class Ec2_Relation():
             instance = boto3.resource("ec2", region_name=self.region).Instance(instance_id)
         return (instance)
 
+    def parse_sgs(self):
+        sgs=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
+        inbound  = {}
+        outbound = {}
+        for sg in sgs:
+            inb  = []
+            outb = []
+            for rule in sg['IpPermissions']:
+                for sg_ip in rule['IpRanges']:
+                    port_range ='0 / 65535'
+                    protocol = 'All'
+                    if not rule['IpProtocol'] == '-1':
+                        port_range = rule['FromPort']
+                        if not rule['FromPort'] == rule['ToPort']:
+                            port_range = str(rule['FromPort']) + ' / ' + str(rule['ToPort'])
+                        protocol = rule['IpProtocol']
+                    cip = sg_ip['CidrIp']
+                    if cip[-2:] == '/0':
+                       cip=cip[:-2]
+                    if cip[-3:] == '/32':
+                       cip=cip[:-3]
+                    inb.append ((cip,protocol,port_range))
+            inbound[sg['GroupId']]=inb
+            for rule in sg['IpPermissionsEgress']:
+                for sg_ip in rule['IpRanges']:
+                    port_range ='0 / 65535'
+                    protocol = 'All'
+                    if not rule['IpProtocol'] == '-1':
+                        port_range = rule['FromPort']
+                        if not rule['FromPort'] == rule['ToPort']:
+                            port_range = str(rule['FromPort']) + ' / ' + str(rule['ToPort'])
+                        protocol = rule['IpProtocol']
+                    cip = sg_ip['CidrIp']
+                    if cip[-2:] == '/0':
+                       cip=cip[:-2]
+                    if cip[-3:] == '/32':
+                       cip=cip[:-3]
+                    outb.append ((cip,protocol,port_range))
+            outbound[sg['GroupId']]=outb
+        return(inbound,outbound)
+
 
     def parse_sg(self,sg_id):
-        sgs=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
-
         sg = boto3.resource("ec2", region_name=self.region).SecurityGroup(sg_id)
         inbound = []
         outbound = []
@@ -42,7 +81,6 @@ class Ec2_Relation():
                 if cip[-3:] == '/32':
                    cip=cip[:-3]
                 inbound.append ((cip,protocol,port_range))
-
         for rule in sg.ip_permissions_egress:
             for sg_ip in rule['IpRanges']:
                 port_range ='0 / 65535'
@@ -58,7 +96,6 @@ class Ec2_Relation():
                 if cip[-3:] == '/32':
                    cip=cip[:-3]
                 outbound.append ((cip,protocol,port_range))
-
         return(inbound,outbound)
 
     def nodes_relations(self):
@@ -91,5 +128,7 @@ class Ec2_Relation():
 
 if __name__  == "__main__" :
     obj = Ec2_Relation()
-    obj.build_nodes()
+    #obj.build_nodes()
+    inb,outb = obj.parse_sgs()
+    
 
