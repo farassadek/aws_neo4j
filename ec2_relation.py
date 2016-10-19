@@ -1,8 +1,5 @@
 from neo4jrestclient.client import GraphDatabase
 import boto3
-import logging
-import time
-import threading
 
 class Ec2_Relation():
     #region = Unicode("us-east-1", config=True, help= """ AWS Region  """)
@@ -38,10 +35,12 @@ class Ec2_Relation():
 
         
     def parse_securitygroups(self,prv_inst,pub_inst):
-        sgs=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
+        securitygroups=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
         inbound  = {}
         outbound = {}
-        for sg in sgs:
+        sg_ips = set(['WWW'])
+
+        for sg in securitygroups:
             inb  = []
             outb = []
             for rule in sg['IpPermissions']:
@@ -54,14 +53,18 @@ class Ec2_Relation():
                             port_range = str(rule['FromPort']) + ' / ' + str(rule['ToPort'])
                         protocol = rule['IpProtocol']
                     cip = sg_ip['CidrIp']
-                    if cip[-2:] == '/0':
-                       cip=cip[:-2]
-                    if cip[-3:] == '/32':
-                       cip=cip[:-3]
-                       if prv_inst.get(cip):
-                          cip = prv_inst.get(cip)
-                       if pub_inst.get(cip):
-                          cip = pub_inst.get(cip)
+                    if cip == '0.0.0.0/0':
+                        cip='WWW'
+                    elif cip[-3:] == '/32':
+                        cip=cip[:-3]
+                        if prv_inst.get(cip):
+                            cip = prv_inst.get(cip)
+                        elif pub_inst.get(cip):
+                            cip = pub_inst.get(cip)
+                        else:
+                            sg_ips.add(cip)
+                    else:
+                        sg_ips.add(cip)
                     inb.append ((cip,protocol,port_range))
             inbound[sg['GroupId']]=inb
             for rule in sg['IpPermissionsEgress']:
@@ -74,13 +77,21 @@ class Ec2_Relation():
                             port_range = str(rule['FromPort']) + ' / ' + str(rule['ToPort'])
                         protocol = rule['IpProtocol']
                     cip = sg_ip['CidrIp']
-                    if cip[-2:] == '/0':
-                       cip=cip[:-2]
-                    if cip[-3:] == '/32':
-                       cip=cip[:-3]
+                    if cip == '0.0.0.0/0':
+                        cip='WWW'
+                    elif cip[-3:] == '/32':
+                        cip=cip[:-3]
+                        if prv_inst.get(cip):
+                            cip = prv_inst.get(cip)
+                        elif pub_inst.get(cip):
+                            cip = pub_inst.get(cip)
+                        else:
+                            sg_ips.add(cip)
+                    else:
+                        sg_ips.add(cip)
                     outb.append ((cip,protocol,port_range))
             outbound[sg['GroupId']]=outb
-        return(inbound,outbound)
+        return(inbound,outbound,sg_ips)
 
 
     def nodes_relations(self,insts_sgs,inbound,outbound):
@@ -94,16 +105,29 @@ class Ec2_Relation():
                     rel = (iid,outb[0],outb[1],outb[2],'outbound')
                     if not rel in self.relation:
                         self.relation.append(rel)
-        
+
+
+    def get_create_label (self,gdb,labelname):
+        try:
+            label=gdb.labels.get(labelname)
+        except:
+            label=gdb.labels.create(labelname)
+        return(label)
 
 
     def build_nodes(self):
         insts_sgs,prv_inst,pub_inst = self.parse_instances()
-        inbound,outbound = self.parse_securitygroups(prv_inst,pub_inst)
+        inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
         self.nodes_relations(insts_sgs,inbound,outbound)
-        for sg in inbound:
-            print (sg)
-        print (inbound.keys())
+        #for sg in inbound:
+        #    print (sg)
+        #print (inbound.keys())
+        #for rel in self.relation:
+        #    print(rel)
+        for sgip in sg_ips:
+            label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
+            node = self.gdb.nodes.create(inst_id="NoID",name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
+            label.add(node)
 
 
 if __name__  == "__main__" :
