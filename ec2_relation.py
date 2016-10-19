@@ -5,24 +5,24 @@ class Ec2_Relation():
     #region = Unicode("us-east-1", config=True, help= """ AWS Region  """)
     gdb = GraphDatabase("http://localhost:7474/db/data/")
     region = 'us-east-1'
+    instances = None
+    securitygroups = None
     relation = []
 
-    def get_instance_by_ip (self,ip):
-        ec2 = boto3.client("ec2", region_name=self.region)
-        instance = None
-        filters = [{ 'Name': 'private-ip-address', 'Values': [ip] }]
-        reservations = ec2.describe_instances(Filters=filters)
-        if reservations['Reservations']:
-            instance_id  = reservations['Reservations'][0]["Instances"][0]["InstanceId"]
-            instance = boto3.resource("ec2", region_name=self.region).Instance(instance_id)
-        return (instance)
+
+    def get_instances (self):
+        self.instances = boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
+
+
+    def get_securitygroups (self):
+        self.securitygroups=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
+
 
     def parse_instances(self):
-        instances=boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
-        inst_sg = {} 
-        prv_inst = {}
-        pub_inst = {}
-        for instance in instances:
+        inst_sg   = {} 
+        prv_inst  = {}
+        pub_inst  = {}
+        for instance in self.instances:
             inst = instance['Instances'][0]
             iid = inst.get('InstanceId')
             igr = inst.get('SecurityGroups')
@@ -35,12 +35,11 @@ class Ec2_Relation():
 
         
     def parse_securitygroups(self,prv_inst,pub_inst):
-        securitygroups=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
         inbound  = {}
         outbound = {}
         sg_ips = set(['WWW'])
 
-        for sg in securitygroups:
+        for sg in self.securitygroups:
             inb  = []
             outb = []
             for rule in sg['IpPermissions']:
@@ -115,23 +114,44 @@ class Ec2_Relation():
         return(label)
 
 
+    def get_vpcnsme_vpcid(self,vpc_id):
+        return(vpc_id)
+
+    def get_vpcnsme_vpcid_old(self,vpc_id):
+        vpc_c   = VPCConnection()
+        vpcs    = vpc_c.get_all_vpcs()
+        vpc     = [v for v in vpcs if v.id == vpc_id][0]
+        name = vpc.id
+        if 'Name' in vpc.tags:
+            if vpc.tags["Name"]:
+                name = vpc.tags["Name"]
+        return (name)
+
+
     def build_nodes(self):
         insts_sgs,prv_inst,pub_inst = self.parse_instances()
         inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
         self.nodes_relations(insts_sgs,inbound,outbound)
-        #for sg in inbound:
-        #    print (sg)
-        #print (inbound.keys())
-        #for rel in self.relation:
-        #    print(rel)
-        for sgip in sg_ips:
-            label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
-            node = self.gdb.nodes.create(inst_id="NoID",name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
+
+        #for sgip in sg_ips:
+        #    label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
+        #    node = self.gdb.nodes.create(inst_id="NoID",name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
+        #    label.add(node)
+
+        for instance in self.instances:
+            inst  = instance['Instances'][0]
+            iid   = inst.get('InstanceId')
+            ivpc  = inst.get('VpcId')
+            ipr   = inst.get('PrivateIpAddress')
+            ipb   = inst.get('PublicIpAddress')
+            label = self.get_create_label(self.gdb,self.get_vpcnsme_vpcid(ivpc))
+            node  = self.gdb.nodes.create(inst_id=iid, name=iid, title=iid, public_ip=ipb, private_ip=ipr)
             label.add(node)
 
 
 if __name__  == "__main__" :
     obj = Ec2_Relation()
-    #obj.nodes_relations()
+    obj.get_instances ()
+    obj.get_securitygroups ()
     obj.build_nodes()
 
