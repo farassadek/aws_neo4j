@@ -5,13 +5,17 @@ class Ec2_Relation():
     #region = Unicode("us-east-1", config=True, help= """ AWS Region  """)
     gdb = GraphDatabase("http://localhost:7474/db/data/")
     region = 'us-east-1'
-    instances = None
+    instances = []
     securitygroups = None
     relation = []
 
 
     def get_instances (self):
-        self.instances = boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
+        instances = boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
+        for instance in instances:
+            inst = instance['Instances'][0]
+            if not inst.get('State')['Name'] == 'terminated':
+                self.instances.append (inst)
 
 
     def get_securitygroups (self):
@@ -22,8 +26,7 @@ class Ec2_Relation():
         inst_sg   = {} 
         prv_inst  = {}
         pub_inst  = {}
-        for instance in self.instances:
-            inst = instance['Instances'][0]
+        for inst in self.instances:
             iid = inst.get('InstanceId')
             igr = inst.get('SecurityGroups')
             ipr = inst.get('PrivateIpAddress')
@@ -128,25 +131,46 @@ class Ec2_Relation():
         return (name)
 
 
-    def build_nodes(self):
+    def build_node(self):
         insts_sgs,prv_inst,pub_inst = self.parse_instances()
         inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
         self.nodes_relations(insts_sgs,inbound,outbound)
-
-        #for sgip in sg_ips:
-        #    label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
-        #    node = self.gdb.nodes.create(inst_id="NoID",name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
-        #    label.add(node)
-
-        for instance in self.instances:
-            inst  = instance['Instances'][0]
+        for inst in self.instances:
             iid   = inst.get('InstanceId')
             ivpc  = inst.get('VpcId')
             ipr   = inst.get('PrivateIpAddress')
             ipb   = inst.get('PublicIpAddress')
             label = self.get_create_label(self.gdb,self.get_vpcnsme_vpcid(ivpc))
-            node  = self.gdb.nodes.create(inst_id=iid, name=iid, title=iid, public_ip=ipb, private_ip=ipr)
+            node  = self.gdb.nodes.create(node_id=iid, name=iid, title=iid, public_ip=iid, private_ip=iid)
+            print ('iid = ', iid, 'and vpc =   ',ivpc)
+            #node  = self.gdb.nodes.create(node_id=iid, name=iid, title=iid, public_ip=ipb, private_ip=ipr)
             label.add(node)
+
+    def build_nodes(self):
+        insts_sgs,prv_inst,pub_inst = self.parse_instances()
+        inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
+        self.nodes_relations(insts_sgs,inbound,outbound)
+
+        nodes = {}
+        for sgip in sg_ips:
+            label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
+            node = self.gdb.nodes.create(node_id=sgip,name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
+            label.add(node)
+            nodes[sgip] = node
+
+        for inst in self.instances:
+            iid   = inst.get('InstanceId')
+            ivpc  = inst.get('VpcId')
+            ipr   = inst.get('PrivateIpAddress')
+            ipb   = inst.get('PublicIpAddress')
+            label = self.get_create_label(self.gdb,self.get_vpcnsme_vpcid(ivpc))
+            node  = self.gdb.nodes.create(node_id=iid, name=iid, title=iid, public_ip=ipb, private_ip=ipr)
+            label.add(node)
+            nodes[iid] = node
+
+        for nodeid in nodes:
+            print (nodeid)
+       
 
 
 if __name__  == "__main__" :
