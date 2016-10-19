@@ -83,9 +83,7 @@ class Ec2_Relation():
         return(inbound,outbound)
 
 
-    def nodes_relations(self):
-        insts_sgs,prv_inst,pub_inst = self.parse_instances()
-        inbound,outbound = self.parse_securitygroups(prv_inst,pub_inst)
+    def nodes_relations(self,insts_sgs,inbound,outbound):
         for iid in insts_sgs.keys():
             for group in insts_sgs[iid]:
                 for inb in inbound[group['GroupId']]:
@@ -96,17 +94,20 @@ class Ec2_Relation():
                     rel = (iid,outb[0],outb[1],outb[2],'outbound')
                     if not rel in self.relation:
                         self.relation.append(rel)
+        
 
 
     def build_nodes(self):
-        self.nodes_relations()
-        for i in self.relation:
-            print (i)
-
+        insts_sgs,prv_inst,pub_inst = self.parse_instances()
+        inbound,outbound = self.parse_securitygroups(prv_inst,pub_inst)
+        self.nodes_relations(insts_sgs,inbound,outbound)
+        for sg in inbound:
+            print (sg)
+        print (inbound.keys())
 
 
 if __name__  == "__main__" :
     obj = Ec2_Relation()
-    obj.nodes_relations()
+    #obj.nodes_relations()
     obj.build_nodes()
 
