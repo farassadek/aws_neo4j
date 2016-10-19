@@ -168,8 +168,17 @@ class Ec2_Relation():
             label.add(node)
             nodes[iid] = node
 
-        for nodeid in nodes:
-            print (nodeid)
+        print (nodes.keys())
+
+        for rel in self.relation:
+            rname = rel[2] + "_" + str(rel[3])
+            if rel[4] == 'inbound':
+               role = rel[1] + " -> " + rel[0] + " | " +  rname
+               #nodes[rel[1]].relationships.create(nodes[rel[0]] , node , role=rname )
+            else:
+               #nodes[rel[0]].relationships.create(nodes[rel[1]] , node , role=rname )
+               role = rel[0] + " -> " + rel[1] + " | " +  rname 
+            print (role)
        
 
 
