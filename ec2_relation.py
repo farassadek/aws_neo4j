@@ -85,11 +85,11 @@ class Ec2_Relation():
 
     def nodes_relations(self):
         insts_sgs,prv_inst,pub_inst = self.parse_instances()
-        inb,outb = self.parse_securitygroups(prv_inst,pub_inst)
-        #for inst_sgs in insts_sgs.keys():
-            #print (inst_sgs)
-            #for g in inst_sgs[inst_sgs]:
-            #    print (g)
+        inbound,outbound = self.parse_securitygroups(prv_inst,pub_inst)
+        for iid in insts_sgs.keys():
+            print (iid)
+            for group in insts_sgs[iid]:
+                print (inbound[group['GroupId']])
 
 
 
