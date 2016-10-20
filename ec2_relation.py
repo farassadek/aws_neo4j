@@ -12,7 +12,7 @@ class Ec2_Relation():
 
 
     def get_instances (self):
-        instances = boto3.client("ec2", region_name='us-east-1').describe_instances() ['Reservations']
+        instances = boto3.client("ec2", region_name=self.region).describe_instances() ['Reservations']
         for instance in instances:
             inst = instance['Instances'][0]
             if not inst.get('State')['Name'] == 'terminated':
@@ -20,24 +20,31 @@ class Ec2_Relation():
 
 
     def get_securitygroups (self):
-        self.securitygroups=boto3.client("ec2", region_name='us-east-1').describe_security_groups()['SecurityGroups']
+        self.securitygroups=boto3.client("ec2", region_name=self.region).describe_security_groups()['SecurityGroups']
 
     def get_vpcs (self):
-        self.resources=boto3.resource("ec2", region_name='us-east-1')
+        self.resources=boto3.resource("ec2", region_name=self.region)
 
     def parse_instances(self):
         inst_sg   = {} 
+        inst_nm   = {} 
         prv_inst  = {}
         pub_inst  = {}
         for inst in self.instances:
             iid = inst.get('InstanceId')
+            tag = inst.get('Tags')
             igr = inst.get('SecurityGroups')
             ipr = inst.get('PrivateIpAddress')
             ipb = inst.get('PublicIpAddress')
             inst_sg[iid]  = igr
             prv_inst[ipr] = iid
             pub_inst[ipb] = iid
-        return (inst_sg,prv_inst,pub_inst)
+            name = iid
+            name = [nm['Value'] for nm in tag if nm['Key'] == 'Name']
+            if name:
+               name = name[0]
+            inst_nm[iid] = name
+        return (inst_nm,inst_sg,prv_inst,pub_inst)
 
         
     def parse_securitygroups(self,prv_inst,pub_inst):
@@ -132,7 +139,7 @@ class Ec2_Relation():
 
 
     def build_nodes(self):
-        insts_sgs,prv_inst,pub_inst = self.parse_instances()
+        insts_names,insts_sgs,prv_inst,pub_inst = self.parse_instances()
         inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
         self.nodes_relations(insts_sgs,inbound,outbound)
 
@@ -149,7 +156,7 @@ class Ec2_Relation():
             ipr   = inst.get('PrivateIpAddress')
             ipb   = inst.get('PublicIpAddress')
             label = self.get_create_label(self.gdb,self.get_vpcnsme_vpcid(ivpc))
-            node  = self.gdb.nodes.create(node_id=iid, name=iid, title=iid, public_ip=ipb, private_ip=ipr)
+            node  = self.gdb.nodes.create(node_id=insts_names[iid], name=insts_names[iid], title=insts_names[iid], public_ip=ipb, private_ip=ipr)
             nodes[iid] = node
             label.add(node)
 
