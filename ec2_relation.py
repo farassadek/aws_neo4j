@@ -22,8 +22,10 @@ class Ec2_Relation():
     def get_securitygroups (self):
         self.securitygroups=boto3.client("ec2", region_name=self.region).describe_security_groups()['SecurityGroups']
 
+
     def get_vpcs (self):
         self.resources=boto3.resource("ec2", region_name=self.region)
+
 
     def parse_instances(self):
         inst_sg   = {} 
@@ -127,7 +129,6 @@ class Ec2_Relation():
         return(label)
 
 
-
     def get_vpcnsme_vpcid(self,vpc_id):
         vpc   = self.resources.Vpc(vpc_id)
         ntag  = vpc.tags[0]['Key']
@@ -142,14 +143,12 @@ class Ec2_Relation():
         insts_names,insts_sgs,prv_inst,pub_inst = self.parse_instances()
         inbound,outbound,sg_ips = self.parse_securitygroups(prv_inst,pub_inst)
         self.nodes_relations(insts_sgs,inbound,outbound)
-
         nodes = {}
         for sgip in sg_ips:
             label = self.get_create_label(self.gdb,"ALL_SGs_IPs")
             node = self.gdb.nodes.create(node_id=sgip,name=sgip, title=sgip, public_ip=sgip, private_ip=sgip)
             nodes[sgip] = node
             label.add(node)
-
         for inst in self.instances:
             iid   = inst.get('InstanceId')
             ivpc  = inst.get('VpcId')
@@ -159,19 +158,16 @@ class Ec2_Relation():
             node  = self.gdb.nodes.create(node_id=insts_names[iid], name=insts_names[iid], title=insts_names[iid], public_ip=ipb, private_ip=ipr)
             nodes[iid] = node
             label.add(node)
-
-
         for rel in self.relation:
             prtcl = rel[2]
             ports = str(rel[3])
             inout = rel[4]
             rname = prtcl + "_" + ports
-
             if inout == 'inbound':
-               #if not rel[1] == 'WWW':
                nodes[rel[1]].relationships.create(rname,nodes[rel[0]], role=rname )
-            #else:
-            #   nodes[rel[0]].relationships.create(rname,nodes[rel[1]], role=rname )
+            else:
+               if not rel[1] == 'WWW':
+                   nodes[rel[0]].relationships.create(rname,nodes[rel[1]], role=rname )
 
 
 if __name__  == "__main__" :
