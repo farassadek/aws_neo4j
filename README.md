@@ -39,7 +39,7 @@ yum install java
 
 tar xzf /tmp/neo4j-community-3.1.2-unix.tar.gz 
 cd neo4j-community-3.1.2/
-# In conf/neo4j.conf replace the localhost with 0.0.0.0/0
+\# In conf/neo4j.conf replace the localhost with 0.0.0.0/0
 ./bin/neo4j start
 curl http://0.0.0.0:7474/
 
