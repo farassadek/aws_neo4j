@@ -78,6 +78,6 @@ python3 ec2_relation.py
 
 
 # Test
-Open the machine address in any browser
+browes you EC2 public IP 
 
 
