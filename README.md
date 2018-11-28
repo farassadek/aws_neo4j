@@ -79,5 +79,6 @@ python3 ec2_relation.py
 
 # Test
 browes you EC2 public IP 
+browes you EC2 public IP 
 
 
